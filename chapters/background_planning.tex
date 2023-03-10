@@ -239,12 +239,12 @@ This section provides a brief overview of the multi-robot path planning problem,
 
 \subsection{Applications}
 
-Multi-robot systems consist of several interaction-aware robots, each capable of independent decision-making to execute a collective task. The inspiration behind such systems is derived from swarms of bees and other insects. Typical examples of such systems used widely include swarm drones and robot fleets. Multi-robot systems involve coordination and communication among constituent robots, allowing a division of labor to achieve a given task. For example, robot fleets are being extensively used today to perform search-and-rescue missions in areas unsuitable for human intervention, particularly during natural disasters. Swarm drones are also used for imaging and mapping over vast territories, particularly for military applications to detect enemy advances. They are also used for demonstrating geometric formations, as well as for military combat, last-mile parcel delivery and precision agriculture. 
+Multi-robot systems consist of several interaction-aware robots, each capable of independent decision-making to execute a collective task. The inspiration behind such systems is derived from swarms of bees and other insects. Typical examples of such systems used widely include swarm drones and robot fleets. Multi-robot systems involve coordination and communication among constituent robots, allowing a division of labor to achieve a given task. For example, robot fleets are being extensively used today to perform search-and-rescue missions in areas unsuitable for human intervention, particularly during natural disasters. Swarm drones are also used for imaging and mapping vast territories, particularly for military applications to detect enemy advances. They are also used for demonstrating geometric formations, as well as for military combat, last-mile parcel delivery, and precision agriculture. 
 
 \begin{figure}[ht]
     \centering
     \includegraphics[scale=0.5]{figures/background/swarm_drones.jpg}
-    \caption[Swarm Drones]{Swarm drones are used for a wide variety of robotics applications, ranging from search-and-rescue missions, military combat, parcel-delivery, and precision agriculture. Source: \scriptsize{\url{https://www.economist.com/the-economist-explains/2015/10/02/how-swarm-drones-are-mimicking-nature}}}
+    \caption[Swarm Drones]{Swarm drones are used for a wide variety of robotics applications, ranging from search-and-rescue missions, military combat, parcel delivery, and precision agriculture. Source: \scriptsize{\url{https://www.economist.com/the-economist-explains/2015/10/02/how-swarm-drones-are-mimicking-nature}}}
     \label{fig:swarm-drones}
 \end{figure}
 
@@ -257,7 +257,7 @@ A multi-robot system must ensure that individual robots do not crash into their 
 
     \item \textit{Decentralized control:} Multi-robot systems typically use decentralized control, meaning that each drone makes decisions based on local information and without central coordination. This gives rise to the need for predictive modeling of other agents' behaviors, which can lead to conflicts and coordination problems.
 
-    \item \textit{Sensing and perception:} Multi-robot systems need to perceive their environment accurately to avoid collisions and perform their tasks effectively. However, the limited sensing capabilities of robots, and the complexity of the environment can make it difficult to obtain reliable information about the surroundings. Moreover, as the number of drones in a swarm increases, the overhead for collision avoidance also increases since collision constraints need to be computed pairwise.
+    \item \textit{Sensing and perception:} Multi-robot systems need to perceive their environment accurately to avoid collisions and perform their tasks effectively. However, the limited sensing capabilities of robots and the complexity of the environment can make it difficult to obtain reliable information about the surroundings. Moreover, as the number of drones in a swarm increases, the overhead for collision avoidance also increases since collision constraints need to be computed pairwise.
 
     \item \textit{Task allocation and optimization:} The optimal allocation of tasks among multi-robot systems can be challenging, particularly when the tasks have different priorities or require different resources. Moreover, the dynamic nature of many applications means that the tasks and their priorities may change over time, requiring continuous adaptation and re-planning.
     
@@ -267,7 +267,7 @@ Overall, multi-robot planning and coordination are complex and challenging tasks
 
 \subsection{Graph-Search-based Multi-Agent Path Finding}\label{sec:MAPF}
 
-Multi-Agent Path Finding(MAPF) consists of a class of algorithms under the umbrella of multi-robot planning that involves the computation of collision-free paths from the start to the goal in a shared environment. Typical solutions for the multi-agent path-finding problem derive inspiration from shortest path computation in graph theory, by discretizing the action space of the robots into graph nodes and constructing edges between them based on permissible controls. Let us now discuss some of the different graph-search-based algorithms that have been developed for MAPF:
+Multi-Agent Path Finding(MAPF) consists of a class of algorithms under the umbrella of multi-robot planning that involves the computation of collision-free paths from the start to the goal in a shared environment. Typical solutions for the multi-agent path-finding problem derive inspiration from shortest path computation in graph theory by discretizing the action space of the robots into graph nodes and constructing edges between them based on permissible controls. Let us now discuss some of the different graph-search-based algorithms that have been developed for MAPF:
 
 \subsubsection{A* Algorithm:}\label{sec:A*}
 A*\cite{A*} is a popular heuristic search algorithm that can be used for MAPF. It uses an admissible heuristic function to estimate the cost of reaching the goal state, typically based on the distance between agents and their targets. A* algorithm can find optimal solutions but can be slow for large-scale MAPF problems.
@@ -281,7 +281,7 @@ PaS\cite{PaS} is a local search algorithm that operates by pushing agents and sw
 
 \subsection{Batch Trajectory Optimization}
 
-Batch trajectory optimization can be applied to multi-robot systems, where a group of robots work together to perform a task. In this context, the goal is to optimize the trajectories of all robots in the system to achieve the desired task while minimizing the overall cost of the system. Instead of considering all the robots in the system at once, they could be split into groups or batches that solve the trajectory optimization problem independent of one another as well. A set of candidate trajectories are chosen for each robot based on the robot dynamics and task definition, and are optimized for all the robots in a single shot by minimizing the overall cost function for all the robots in the system. The cost function could the the norm of the acceleration of all the robots to ensure precise, smooth movements, or the total time taken by all the robots to execute the given task. Note that this optimization problem also includes collision avoidance constraints between pairs of agents and obstacles in the environment. Then the optimal set of trajectories are executed by all the robots. 
+Batch trajectory optimization can be applied to multi-robot systems, where a group of robots works together to perform a task. In this context, the goal is to optimize the trajectories of all robots in the system to achieve the desired task while minimizing the overall cost of the system. Instead of considering all the robots in the system at once, they could be split into groups or batches that solve the trajectory optimization problem independent of one another as well. A set of candidate trajectories are chosen for each robot based on the robot dynamics and task definition and are optimized for all the robots in a single shot by minimizing the overall cost function for all the robots in the system. The cost function could the the norm of the acceleration of all the robots to ensure precise, smooth movements, or the total time taken by all the robots to execute the given task. Note that this optimization problem also includes collision avoidance constraints between pairs of agents and obstacles in the environment. Then the optimal set of trajectories are executed by all the robots. 
 
 \subsection{Matrix operations on a GPU}
 
@@ -363,7 +363,7 @@ where $T_i$ is the transformation matrix corresponding to the $i^{th}$ joint of 
     \label{fig:ur5e}
 \end{figure*}
 
-The Universal Robots UR5e is a 6 degree-of-freedom robot arm. The joint angles, corresponding to the 6 joints, shown in Figure \ref{fig:ur5e} are denoted by $q_1$, $q_2$, ..., $q_6$, and the overall forward kinematics is described by the serial multiplication of six transformation matrices corresponding to the six joints, similar to eqn.\ref{eqn: fk_manipulator}. The Denavit-Hartenberg(D-H) frames and parameters for the 6-DoF UR5e robot arm are depicted in Figure \ref{fig:dh-ur5}.
+The Universal Robots UR5e is a 6-degree-of-freedom robot arm. The joint angles, corresponding to the 6 joints, shown in Figure \ref{fig:ur5e} are denoted by $q_1$, $q_2$, ..., $q_6$, and the overall forward kinematics is described by the serial multiplication of six transformation matrices corresponding to the six joints, similar to eqn.\ref{eqn: fk_manipulator}. The Denavit-Hartenberg(D-H) frames and parameters for the 6-DoF UR5e robot arm are depicted in Figure \ref{fig:dh-ur5}.
 
 \begin{figure*}[t!]
     \centering
@@ -385,8 +385,8 @@ The Universal Robots UR5e is a 6 degree-of-freedom robot arm. The joint angles, 
 Path planning for robot manipulators is a complex problem that involves several challenges. Here are some of the key challenges involved:
 
 \begin{itemize}
-    \item \textit{High Dimensionality:} Robot manipulators typically operate in high-dimensional spaces, with each joint providing a degree of freedom, such as the 7-dimensional joint angle space in case of the Franka Panda arm, and the 6-dimensional joint space for the UR5e arm. This makes the search space for path planning algorithms very large, and finding an optimal path becomes computationally expensive.
-    \item \textit{Nonlinear Constraints:}  The motion of robot manipulators is subject to nonlinear constraints, such as the dynamics of the robot and the workspace bounds, as well as physical constraints such as joint limits and collision avoidance. Incorporating these constraints into path planning algorithms can be challenging, and some algorithms may require sophisticated mathematical techniques to solve the constraints.
+    \item \textit{High Dimensionality:} Robot manipulators typically operate in high-dimensional spaces, with each joint providing a degree of freedom, such as the 7-dimensional joint angle space in the case of the Franka Panda arm and the 6-dimensional joint space for the UR5e arm. This makes the search space for path-planning algorithms very large, and finding an optimal path becomes computationally expensive.
+    \item \textit{Nonlinear Constraints:}  The motion of robot manipulators is subject to nonlinear constraints, such as the dynamics of the robot and the workspace bounds, as well as physical constraints, such as joint limits and collision avoidance. Incorporating these constraints into path-planning algorithms can be challenging, and some algorithms may require sophisticated mathematical techniques to solve the constraints.
     \item \textit{Real-time Operation:}  In many rearrangement applications, path planning must be performed in real-time, with the manipulator making decisions and adapting to new obstacles or changes in the environment. Real-time path planning requires efficient algorithms that can quickly search the space of possible paths and adapt the plan as needed.
 \end{itemize}
 
@@ -394,9 +394,7 @@ Overcoming the above challenges requires the development of efficient path-plann
 
 \subsection{Joint space-vs end-effector space}
 
-For a robot manipulator, the path-planning can be performed in two motion spaces - either in the high-dimensional space formed by the joint angles, corresponding to each movable joint, or the end-effector space, which is a 3-dimensional space limited by the workspace bounds  or a 2-dimensional table plane (for planar end-effector motion). The choice of the motion space is determined by the requirements of the task at hand. For example, for a robot arm pushing objects on the table, the major task at hand involves the pose of the end-effector on the 2-D tabletop plane, and hence the path planning can be performed in the Cartesian end-effector space. For tasks involving gripping objects, it is more effective to plan trajectories in the joint space, in order to avoid collisions and minimize joint movements. 
-
-For manipulators, in addition to the performance metrics discussed in Section \ref{sec:traj_eval_metrics}, joint cost becomes a very important metric for benchmark comparison. Joint cost is defined as the norm of the difference in joint angles over successive timestamps. In essence, joint cost captures the effort expended by the robot to perform some task by changing its joint angles, and therefore, the goal of an efficient trajectory optimizer would be to minimize the joint cost incurred by the robot arm to complete a given task. 
+For a robot manipulator, the path-planning can be performed in two motion spaces - either in the high-dimensional space formed by the joint angles corresponding to each movable joint or the end-effector space, which is a 3-dimensional space limited by the workspace bounds  or a 2-dimensional table plane (for planar end-effector motion). The choice of motion space is determined by the requirements of the task at hand. For example, for a robot arm pushing objects on the table, the major task at hand involves the pose of the end-effector on the 2-D tabletop plane, and hence the path planning can be performed in the Cartesian end-effector space or even in the Cartesian space of the center of the object being pushed on the table. For tasks involving grasping objects, it is more effective to plan trajectories in the joint space in order to avoid collisions and minimize joint movements. 
 
 Based on the two paradigms of optimization discussed in Sections \ref{sec:gradient-optim} and \ref{sec:sampling-optim}, let us discuss both Gradient-based and Sampling-based trajectory optimization for a robot manipulator.
 
@@ -406,7 +404,7 @@ Based on the two paradigms of optimization discussed in Sections \ref{sec:gradie
 
 CHOMP (Covariant Hamiltonian Optimization for Motion Planning)\cite{CHOMP} is a gradient-based optimization method for efficient motion planning of robot manipulators in high-dimensional spaces. This method was developed by Brian Paden and Emo Todorov in 2011.
 
-The key idea behind CHOMP is to formulate the motion planning problem as an optimization problem, where the objective is to minimize an objective function that typically includes terms that penalize collisions with obstacles, deviation from a desired trajectory, and energy consumption. In CHOMP, the optimization is performed using a gradient descent method, where the gradient of the cost function with respect to the joint angles of the robot is computed and used to update the joint angles iteratively. The gradient is computed using backpropagation through time, which involves propagating the gradient backwards through a sequence of time steps.
+The key idea behind CHOMP is to formulate the motion planning problem as an optimization problem, where the objective is to minimize an objective function that typically includes terms that penalize collisions with obstacles, deviation from a desired trajectory, and energy consumption. In CHOMP, the optimization is performed using a gradient descent method, where the gradient of the cost function with respect to the joint angles of the robot is computed and used to update the joint angles iteratively. The gradient is computed using backpropagation through time, which involves propagating the gradient backward through a sequence of time steps.
 
 One of the key advantages of CHOMP is its ability to handle non-convex constraints and to generate smooth, continuous paths that avoid collisions with obstacles. This is achieved by using a smoothing term in the cost function, which encourages the joint angles to vary smoothly over time. Another advantage of CHOMP is its scalability to high-dimensional spaces, which makes it well-suited for motion planning of robot manipulators with many degrees of freedom.
 
@@ -415,27 +413,27 @@ However, CHOMP does have some limitations. It requires a good initial guess of t
 
 \subsubsection{TrajOpt}\label{sec:TrajOpt}
 
-TrajOpt\cite{TrajOpt}, developed by John Schulman and his colleagues at UC Berkeley in 2013 is an open-source library for motion planning and trajectory optimization of robot manipulators.
+TrajOpt\cite{TrajOpt}, developed by John Schulman and his colleagues at UC Berkeley in 2013, is an open-source library for motion planning and trajectory optimization of robot manipulators.
 
-TrajOpt also involves gradient-based trajectory optimization using techniques such as sequential quadratic programming or gradient descent. The TrajOpt library provides a flexible and modular framework for specifying the motion planning problem, allowing users to define a wide range of cost functions and constraints, including collision avoidance, joint limits, end-effector constraints, and task-specific objectives such as minimizing the energy consumption. TrajOpt also uses a collision checking algorithm based on bounding volume hierarchies, which can quickly identify potential collisions between the robot and the environment. It also incorporates a warm-starting strategy, which initializes the optimization algorithm with a feasible solution from a previous iteration, reducing the time required for convergence.
+TrajOpt also involves gradient-based trajectory optimization using techniques such as sequential quadratic programming or gradient descent. The TrajOpt library provides a flexible and modular framework for specifying the motion planning problem, allowing users to define a wide range of cost functions and constraints, including collision avoidance, joint limits, end-effector constraints, and task-specific objectives such as minimizing energy consumption. TrajOpt also uses a collision-checking algorithm based on bounding volume hierarchies, which can quickly identify potential collisions between the robot and the environment. It also incorporates a warm-starting strategy, which initializes the optimization algorithm with a feasible solution from a previous iteration, reducing the time required for convergence.
 
-TrajOpt, written in C++ and Python, is designed to be highly customizable and extensible. It can be integrated with various robot simulation and control frameworks, such as ROS, Gazebo, or PyBullet, and supports a wide range of environments, robot models and kinematic solvers. \cite{OpenRAVE} uses TrajOpt as a collision-detection module.
+TrajOpt, written in C++ and Python, is designed to be highly customizable and extensible. It can be integrated with various robot simulation and control frameworks, such as ROS, Gazebo, or PyBullet, and supports a wide range of environments, robot models, and kinematic solvers. \cite{OpenRAVE} uses TrajOpt as a collision-detection module.
 
 \subsection{Sampling-based Optimization}\label{sec:bg-sampling-manipulator}
 
-Sampling-based optimizers rely on stochastic optimization, i.e. sampling a set of potential candidate trajectories to be followed by the manipulator, and evaluating the associated costs to finally choose the trajectory with the minimum cost. The best set of candidates are used to iteratively improve on the samples for the next iteration, ultimately helping the optimizer converge to an optima in the cost function. 
+Sampling-based optimizers rely on stochastic optimization, i.e. sampling a set of potential candidate trajectories to be followed by the manipulator and evaluating the associated costs to finally choose the trajectory with the minimum cost. The best set of candidates is used to iteratively improve on the samples for the next iteration, ultimately helping the optimizer converge to an optimum in the cost function. 
 
 \subsubsection{STORM}
 
 STORM(Stochastic Tensor Optimization for Robot Motion)\cite{STORM} is an optimization algorithm designed to efficiently and effectively generate smooth and collision-free trajectories for robots in complex environments between a start state and a desired state by iteratively optimizing a tensor-based cost function. STORM works by first defining a tensor-based representation of the state space, designed to capture the high-dimensional motion space of the robot. The tensor is defined as a multi-dimensional array, where each dimension corresponds to a specific aspect of the robot's state, such as position, velocity, or acceleration. The size of each dimension is determined by the resolution of the state space.
 
-The optimization process is stochastic, which means that it involves randomly sampling different trajectories and evaluating their costs. This randomness helps to ensure that STORM is able to find a diverse set of trajectories that can be used to navigate complex environments. Additionally, STORM is able to leverage parallel computing to speed up the optimization process, which can be critical for real-time applications.
+The optimization process is stochastic, which means that it involves randomly sampling different trajectories and evaluating their costs. Self-collisions are detected by using \textit{jointNERF}, a network that computes the closest distance between robot links given joint poses, while environment collisions are based on signed distances. This randomness helps to ensure that STORM is able to find a diverse set of trajectories that can be used to navigate complex environments. Additionally, STORM is able to leverage parallel computing to speed up the optimization process, which can be critical for real-time applications.
 
 One of the key advantages of STORM is its ability to handle high-dimensional state spaces, which is particularly useful for manipulator path planning. It achieves this by using a tensor-based representation of the state space, which allows it to efficiently explore large and complex environments. STORM is also able to incorporate a wide range of constraints, including collision avoidance, joint limits, and kinematic constraints.
 
 \subsubsection{Cross-Entropy Methods(CEM)}
 
-The cross-entropy method (CEM)\cite{CEM_og} is a derivative-free optimization technique that employs an adaptive importance sampling procedure using the cross-entropy measure. In each iteration of the CEM-based stochastic trajectory optimization the following two steps are performed:
+The cross-entropy method (CEM)\cite{CEM_og} is a derivative-free optimization technique that employs an adaptive importance sampling procedure using the cross-entropy measure. In each iteration of the CEM-based stochastic trajectory optimization, the following two steps are performed:
 
 \begin{itemize}
     \item Derive candidate trajectories by sampling from a probability distribution
@@ -451,7 +449,7 @@ Mathematically, these steps can be represented as follows (Source: \url{https://
     \begin{equation}
         \boldsymbol{v^{(t)}} = \argmax_v\frac{1}{N}\sum_{i=1}^{N}\zeta(\boldsymbol{X_i})\frac{f(\boldsymbol{X_i};u)}{f(\boldsymbol{X_i},\boldsymbol{v^{(t-1)}})}\text{log}f(\boldsymbol{X_i};\boldsymbol{v})
     \end{equation}
-    \item If convergence is reached then stop, otherwise proceed to next iteration by incrementing $t$ by 1 and repeat from step \ref{point:sampling}.
+    \item If convergence is reached, then stop, otherwise proceed to the next iteration by incrementing $t$ by 1 and repeat from step \ref{point:sampling}.
 \end{enumerate}
 
 The cost function $\zeta$ takes into account factors such as the length of the path, the amount of time it takes to complete the path, and the distance from the robot arm to obstacles in the environment. Over time, the CEM algorithm converges to an optimal solution, which represents the best path for the robot arm to reach the target point while avoiding obstacles. 
