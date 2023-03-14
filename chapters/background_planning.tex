@@ -1,12 +1,14 @@
-This chapter introduces some fundamental background concepts in robot path planning that are essential for understanding the methods adopted in the subsequent chapters.
+This chapter introduces some fundamental background concepts that are essential for understanding the methods adopted in the subsequent chapters.
 
 We first discuss the differences in kinematics among different types of robots and the necessity of designing a suitable trajectory representation respecting these differences prior to formulating a path planning problem. We talk about continuous-time trajectory representation using Cubic Splines and Bernstein polynomials, which are leveraged extensively in both our GPU-based multi-robot optimizer and the bi-level manipulator optimizer. Next, we introduce how to pose a trajectory optimization problem and explore two broad types of optimization - Gradient-based and Sampling-based. We contrast the performance of these two paradigms for various applications and then explore collision avoidance constraints to the trajectory optimization problem. Under standard collision avoidance techniques, we discuss two approaches - distance-based Collision Avoidance, and Time-scaling. We also coin a few standard evaluation metrics for judging the quality of a trajectory planned by an optimizer.
 
 Next, we discuss Multi-Robot Path Planning, starting with real-world multi-agent systems and the challenges involved in extending standard path planning approaches directly to them. We analyze a few existing multi-robot path planners and discuss their advantages and weaknesses. Finally, we provide a brief introduction to batch trajectory optimization and commercial off-the-shelf GPU-based mathematical libraries to prime the reader for the next chapter on our GPU-accelerated optimizer.
 
-Next, we move on to the problem of joint-space or end-effector space path planning for robot manipulators and discuss state-of-the-art optimization methods used for manipulator planning. We offer a detailed explanation of methods such as CHOMP\cite{CHOMP}, TrajOpt\cite{TrajOpt}, STORM\cite{STORM} and Cross-Entropy Methods(CEM)\cite{iCEM}. These optimization techniques form the backdrop for the Via-Point Stochastic Trajectory Optimization(VPSTO)\cite{VPSTO} method, which forms a crucial component in our bi-level optimization framework for push actions in manipulators.
+Next, we move on to the path planning and motion planning for robot manipulators and discuss state-of-the-art optimization methods used for manipulator planning. We offer a detailed explanation of methods such as CHOMP\cite{CHOMP}, TrajOpt\cite{TrajOpt}, STORM\cite{STORM} and Cross-Entropy Methods(CEM)\cite{iCEM}. These optimization techniques form the backdrop for the Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VP-STO} method, which forms a crucial component in our bi-level optimization framework for push actions in manipulators.
 
 \section{Mobile Robot Kinematics}
+
+Kinematics equations dictate how given a set of controls, the state of a robot changes. Thus if a robot starts at a given state, its kinematics will tell us what will be the robot state if a set of controls are executed. These kinematic laws are specific to the design and motion of the robot. Broadly, mobile robots (those in which a full-body displacement occurs during motion) can be classified into the following two types based on their kinematics:
 
 \subsection{Holonomic Robots}\label{sec:holonomic_robots}
 
@@ -17,16 +19,18 @@ For a robot with $n$ controllable degrees of freedom, it is considered holonomic
 x = x_0+\dot{x}*\delta t\\
 y = y_0+\dot{y}*\delta t
 \end{align}
+\label{eqn: holonomic_kinematics}
 \end{subequations}
 
 where $\dot{x}$ and $\dot{y}$ denote the velocities in the two axes and $\delta t$ indicates a time step.
 A few examples of common holonomic robots include drones (holonomic in 3-D), omnidirectional robots, etc.
 
-\subsection{Non-holonomic Robots}
+\subsection{Non-holonomic Robots}\label{sec:nonhn_robots}
 
 Non-holonomic robot systems are characterized by constraint equations that limit the degrees of freedom. Thus the permissible degrees of freedom for nonholonomic robot systems are less than the controllable degrees of freedom. A typical example of a non-holonomic system in 2-D is a differential drive mobile robot that is incapable of slipping in the lateral direction. The non-holonomic constraint is written as below:
 \begin{equation}
 \dot{y} = \dot{x}\tan{\theta}
+\label{eqn: non_holonomic_kinematics}
 \end{equation}
 
 The controls for a non-holonomic system are given by the linear velocity $v$ and the angular velocity $\omega$, giving rise to the following kinematics equations:
@@ -34,17 +38,33 @@ The controls for a non-holonomic system are given by the linear velocity $v$ and
 \begin{subequations}
 \begin{align}
 x = x_0 + v\delta t\cos{(\theta_0+\int\omega\delta t)}\\
-y = y_0 + v\delta t\sin{(\theta_0+\int\omega\delta t)}\\
+y = y_0 + v\delta t\sin{(\theta_0+\int\omega\delta t)}
 \end{align}
 \end{subequations} 
 
 \section{Trajectory Representation}\label{sec:trajectory_rep}
 
-A trajectory parameterized by time defines a sequence or a function mapping successive timestamps to the motion space of a system. It indicates the robot's state at a certain point in time. There are two broad methods of representing a trajectory mathematically, as discussed below:
+A trajectory consists of state vectors for each moving component of the robot, stacked with respect to time. For example, for a mobile holonomic robot in 2-D, each point in the trajectory denotes a 2-D position of the centre of the robot, consisting of X and Y position coordinates. As the robot moves with time, this centre position changes, giving rise to a sequence of 2-D vectors corresponding to different timestamps. We could represent the X-coordinate position as a time-varying sequence $g_x(t)$ and the Y-coordinate position as $g_y(t)$. Thus the trajectory is of the following form: 
+\begin{equation}
+    g(t) = \begin{bmatrix}
+    g_x(t_1) & g_y(t_1)\\
+    g_x(t_2) & g_y(t_2)\\
+    ... & ... \\
+    g_x(t_f) & g_y(t_f)
+    \end{bmatrix}
+\end{equation}
+
+For a manipulator with $n$ movable joints, the trajectory would be a time-parameterized sequence of $n$-dimensional vectors, each denoting either a joint position or joint angle at a given timestamp. 
+
+We could also use the kinematics equations to transform the trajectory from state space to control space. The control space contains controls as independent time-varying sequences. We can calculate the robot states from them to denote the trajectory. This technique is particularly useful for non-holonomic robots, where the robot state is governed by the linear velocity $v(t)$ and the angular velocity $\omega(t)$ controls. Thus while the robot states in different dimensions may be kinematically coupled to each other (such as in eqn.\ref{eqn: non_holonomic_kinematics}), these controls are independent and can be used to represent the trajectory. 
+
+The time-varying controls or robot states can be represented as a time-parameterized function or a discrete sequence of values over time as discussed below:
 
 \subsection{Continuous-time representation}
 
-Here, a trajectory is represented as a function $f: t\mapsto S$ where $S$ denotes the motion space of a robot. The function $f$ and its derivatives should satisfy the trajectory bounds, i.e. the start and end states of the robot, as well as intermediate waypoint states. It also determines the shape of the curve fitting the start and goal points and forms a very important design choice in most path-planning applications. Some of the commonly used functions used to represent holonomic and non-holonomic mobile robot trajectories include:
+Here, each time-varying robot state is represented through a function $f: t\mapsto S$ where $S$ denotes the allowed set of states of the robot and $t$ extends over the time of observation. If we denote time-varying controls through the function $f$, then S would denote the allowed set of controls of the robot.
+
+The function $f$ and its derivatives should satisfy the boundary limits on the robot states and controls as dictated by the robot kinematics. For example, for a holonomic robot in 2-D, we could have different functions $f_x$ and $f_y$ denoting the X and Y positions of the robot with respect to time. The choice of this function forms a very important design choice in most path-planning applications. Some of the commonly used functions used to represent holonomic and non-holonomic mobile robot trajectories include:
 
 \subsubsection{Cubic Spline}
 
@@ -55,7 +75,7 @@ f(t) = w_0 + w_1 t + w_2 t^2 + w_3 t^3
 \label{eqn:cubic_spline}
 \end{equation}
 
-To solve for the weights, we would require a minimum of four equations, i.e. four deterministic states of the robot at predefined timestamps. To give an idea, we could know start and goal position and velocity values $f(t_0)$, $f(t_f)$, $\dot{f(t_0)}$ and $\dot{f(t_f)}$ for a trajectory between time $t_0$ and $t_f$ forming the boundary state vector $A$ and solve the following system of linear equations using the basis polynomial matrix $B$ to compute the weights $W = [w_0, w_1, w_2, w_3]$.
+To solve for the weights, we would require a minimum of four equations, i.e. four deterministic states of the robot at predefined timestamps. To give an idea, suppose we are dealing with the trajectory of a holonomic robot. We could know start and goal positions $f(t_0)$, $f(t_f)$, as well as the start and goal velocity values $\dot{f(t_0)}$ and $\dot{f(t_f)}$ for a trajectory between time $t_0$ and $t_f$ forming the boundary state vector $A$ and solve the following system of linear equations using the basis polynomial matrix $B$ to compute the weights $W = [w_0, w_1, w_2, w_3]$.
 
 \begin{subequations}
  \begin{align}
@@ -112,10 +132,10 @@ The derivatives of the Bernstein basis function are, in themselves, Bernstein po
 
 \subsection{Discrete-time representation}
 
-A discrete-time trajectory is represented as a sequence of values $f(t) = \{f(t_0), f(t_1), ... f(t_f)\}$ corresponding to successive timestamps $t = \{t_0, t_1, ... t_f\}$. It can be thought of as sampling a continuous-time trajectory function at predefined timestamps. For the purpose of computational representation of trajectories, discrete-time sequences are generally used. To represent a trajectory in continuous time, generally, the basis functions are predetermined and only the coefficients are saved to reconstruct the trajectory as a weighted linear combination of known basis functions, similar to eqns. \ref{eqn:cubic_spline} and \ref{eqn:Bernstein}.
+A discrete-time trajectory represented as a sequence of states $f(t) = \{f(t_0), f(t_1), ... f(t_f)\}$ corresponding to successive timestamps $t = \{t_0, t_1, ... t_f\}$. It can be thought of as sampling a continuous-time trajectory function at predefined timestamps. For the purpose of computational representation of trajectories, discrete-time sequences are generally used. To represent a trajectory in continuous time, generally, the basis functions are predetermined and only the coefficients are saved to reconstruct the trajectory as a weighted linear combination of known basis functions, similar to eqns. \ref{eqn:cubic_spline} and \ref{eqn:Bernstein}.
 
 
-\section{Posing trajectory planning as an Optimization Problem}
+\section{The Trajectory Optimization Problem}
 \label{sec:optimization-intro}
 \textbf{Linear Programming:}
 Solving polynomial coefficients for the boundary state constraints as discussed in section \ref{sec:trajectory_rep} falls into a class of mathematical optimization known as Linear Programming(LP), which, simply put, involves solving a system of linear equations. Eqn. \ref{eqn:LP} with the polynomial weight vector as $W$, the basis polynomial matrix as $B$ and the right-hand side boundary vector $A$ can be solved using LP as follows:
@@ -123,7 +143,7 @@ Solving polynomial coefficients for the boundary state constraints as discussed 
     W = inv({B})A
 \end{equation}
 
-In addition to solving for boundary constraints, we can define a general objective function($\zeta$) in terms of the trajectory function $f$ that should be subject to the robot's kinematic, dynamic, and environmental equality and inequality constraints $g$. Mathematically, this optimization problem may be written as:
+In addition to solving for boundary constraints, we can define a general objective function($\zeta$) in terms of the trajectory function $f$ that should be subject to the robot's kinematic, dynamic, and environmental equality and inequality constraints $g$. The evaluation of this objective function comes from the motion planning module of the robot system. Mathematically, this optimization problem may be written as:
 
 \begin{equation}
 \min_{f(t)} \zeta(f(t)) \qquad \text{st: } g(f(t)) \leq 0
@@ -156,13 +176,13 @@ Now, we attempt to attain the minima by updating the optimization variable with 
     f_{k+1}^T = f_k^T - \alpha \triangledown_{f}{\zeta}
 \end{equation}
 
-The feasibility of solving the optimization problem with this approach is dependent on factors such as the convexity of the objective function, the convexity of the constraints, and the computational complexity of computing the gradient. A few existing approaches for mobile robot path planning that use gradient-based optimization include \cite{aks_ral21}, \cite{CDC_time_scaling}. Even for manipulator planning, \cite{CHOMP}, \cite{STOMP} use gradient-based optimization where the gradient of the objective is computed over the joint angle space. 
+The feasibility of solving the optimization problem with this approach is dependent on factors such as the convexity of the objective function, the convexity of the constraints, and the computational complexity of computing the gradient. A few existing approaches for mobile robot path planning that use gradient-based optimization include \cite{aks_ral21}, and \cite{CDC_time_scaling}. Even for manipulator planning, \cite{CHOMP}, \cite{STOMP} use gradient-based optimization where the gradient of the objective is computed over the joint angle space. 
 
 \subsection{Sampling-based Optimization}\label{sec:sampling-optim}
 
-Sampling-based approaches bypass the gradient computation in eqn.\ref{eqn:gradient} by sampling random points in the solution space and picking the sample that minimizes the optimization objective $\zeta$. This approach is adopted in Rapidly-Exploring Random Trees(RRT) \cite{RRT-og}, where around each current point, random uniform samples of points are considered and connected to an expanding tree towards the goal. Similarly, in A* \cite{A*}, Djikstra, and EBS-A* \cite{EBS-A*} algorithms, a heuristic function is optimized over an expanding graph search to compute the most optimal path from a start pose to an end pose. 
+Sampling-based approaches bypass the gradient computation in eqn.\ref{eqn:gradient} by sampling points in the solution space and picking the sample that minimizes the optimization objective $\zeta$. This approach is adopted in Rapidly-Exploring Random Trees(RRT) \cite{RRT-og}, where around each current point, random uniform samples of points are considered and connected to an expanding tree toward the goal. Similarly, in A* \cite{A*}, Djikstra, and EBS-A* \cite{EBS-A*} algorithms, a heuristic function is optimized over an expanding graph search to compute the most optimal path from a start pose to an end pose. 
 
-Recent approaches \cite{STORM}, \cite{iCEM} and \cite{VPSTO} sample candidate solutions to the optimization problem from a distribution and compute the cost associated with each candidate. Then the sample distribution is adapted to produce a "better" sample in the next iterations. This translates a deterministic optimization problem into a stochastic optimization problem. The benefit of this approach is its speed and generalizability to non-convex, discontinuous objective functions that would be infeasible to solve using gradient-based optimization techniques. 
+Recent approaches \cite{STORM}, \cite{iCEM}, and \cite{VPSTO} sample candidate solutions to the optimization problem from a distribution and compute the cost associated with each candidate. Then the sample distribution is adapted to produce a "better" sample in the next iterations. This translates a deterministic optimization problem into a stochastic optimization problem. The benefit of this approach is its speed and generalizability to non-convex, discontinuous objective functions that would be infeasible to solve using gradient-based optimization techniques. 
 
 \subsection{Collision Avoidance methods}
 
@@ -248,22 +268,18 @@ Multi-robot systems consist of several interaction-aware robots, each capable of
     \label{fig:swarm-drones}
 \end{figure}
 
-\subsection{Challenges Involved}
+\subsection{Challenges Involved}\label{sec: multiagent_challenges}
 
-A multi-robot system must ensure that individual robots do not crash into their surroundings or each other. The whole system must also act and make decisions rapidly within the limits of the processors and information available to each drone. A few challenges associated with multi-robot control and coordination:
+A multi-robot system must ensure that individual robots do not crash into their surroundings or each other. The individual robots must also follow short and safe trajectories from start to goal, and replan their trajectories in near real-time if required. A few challenges associated with multi-robot path planning are as follows:
 
 \begin{enumerate}
-    \item \textit{Communication and bandwidth limitations:} Individual robots need to communicate with each other and with a central ground station to share information and coordinate their actions. However, communication and bandwidth limitations can cause delays and disruptions in data transmission. 
+    \item \label{bg: centralized_multi_planning}\textit{Coordination and Communication Issues:} Individual robots may communicate directly with each other or relay through a central ground station to share information and coordinate their actions. However, communication and bandwidth limitations can cause delays and disruptions in data transmission. 
 
-    \item \textit{Decentralized control:} Multi-robot systems typically use decentralized control, meaning that each drone makes decisions based on local information and without central coordination. This gives rise to the need for predictive modeling of other agents' behaviors, which can lead to conflicts and coordination problems.
-
-    \item \textit{Sensing and perception:} Multi-robot systems need to perceive their environment accurately to avoid collisions and perform their tasks effectively. However, the limited sensing capabilities of robots and the complexity of the environment can make it difficult to obtain reliable information about the surroundings. Moreover, as the number of drones in a swarm increases, the overhead for collision avoidance also increases since collision constraints need to be computed pairwise.
-
-    \item \textit{Task allocation and optimization:} The optimal allocation of tasks among multi-robot systems can be challenging, particularly when the tasks have different priorities or require different resources. Moreover, the dynamic nature of many applications means that the tasks and their priorities may change over time, requiring continuous adaptation and re-planning.
+    \item \label{bg: scalability_multi_planning}\textit{Scalability Issues:} Multi-robot systems need to perceive their environment accurately to avoid collisions and perform their tasks effectively. However, the limited sensing capabilities of robots and the complexity of the environment can make it difficult to obtain reliable information about the surroundings. Moreover, as the number of drones in a swarm increases, the overhead for collision avoidance also increases since collision constraints need to be computed pairwise.
     
 \end{enumerate}
 
-Overall, multi-robot planning and coordination are complex and challenging tasks that require careful consideration of communication, sensing, control, and optimization. Despite these challenges, the potential benefits of swarm drones make them an attractive area of research and development for many applications.
+Overall, multi-robot planning and coordination are complex and challenging tasks that require careful consideration of communication, sensing, control, and optimization. Despite these challenges, the potential benefits of swarm drones make them an attractive area of research and development for many applications. To solve problem \ref{bg: centralized_multi_planning}, multi-robot systems typically use decentralized control, meaning that each robot makes decisions for itself without central coordination. We have already discussed Centralized versus Distributed trajectory optimization paradigms in Section \ref{centralized_vs_distributed}, which can solve the scalability issues in problem \ref{bg: scalability_multi_planning}, rising from an increasing number of robots in a multi-robot system. However, the accuracy of distributed multi-robot planning depends on the accuracy of the predictive model each robot uses for the other robots. The algorithms we discuss in the following subsections can be implemented either in a centralized or a distributed setting, depending on the speed, scale and collision avoidance requirements. 
 
 \subsection{Graph-Search-based Multi-Agent Path Finding}\label{sec:MAPF}
 
@@ -283,7 +299,7 @@ PaS\cite{PaS} is a local search algorithm that operates by pushing agents and sw
 
 Batch trajectory optimization can be applied to multi-robot systems, where a group of robots works together to perform a task. In this context, the goal is to optimize the trajectories of all robots in the system to achieve the desired task while minimizing the overall cost of the system. Instead of considering all the robots in the system at once, they could be split into groups or batches that solve the trajectory optimization problem independent of one another as well. A set of candidate trajectories are chosen for each robot based on the robot dynamics and task definition and are optimized for all the robots in a single shot by minimizing the overall cost function for all the robots in the system. The cost function could the the norm of the acceleration of all the robots to ensure precise, smooth movements, or the total time taken by all the robots to execute the given task. Note that this optimization problem also includes collision avoidance constraints between pairs of agents and obstacles in the environment. Then the optimal set of trajectories are executed by all the robots. 
 
-\subsection{Matrix operations on a GPU}
+\subsection{Accelerating Batch Optimization over GPUs}
 
 Matrix computations can be sped up over a GPU (Graphics Processing Unit) by taking advantage of the massively parallel architecture of the GPU. A GPU typically contains thousands of small processing cores that work together to perform computations in parallel. Matrix computations, such as matrix multiplication, are particularly well-suited for parallel processing because each element of the output matrix can be computed independently.
 
@@ -305,6 +321,7 @@ The problem of robot manipulator path planning is the task of finding a collisio
     \caption[Path Planning for a Manipulator]{An illustration showing the task of path planning for a robot manipulator from a start pose to an end pose, while avoiding obstacles in the surroundings and preventing self-collisions and coiling in on itself. The red line denotes the trajectory to be followed by the end-effector from start to goal. Source: \scriptsize{\url{https://control.com/technical-articles/how-does-motion-planning-for-autonomous-robot-manipulation-work/}}}
     \label{fig:manipulator-planning}
 \end{figure}
+
 
 \subsection{Manipulator Kinematics}\label{sec:bg-manipulator-kinematics}
 
@@ -337,7 +354,21 @@ The Franka Emika Panda is a 7 degree-of-freedom robot manipulator that is widely
 \end{equation}
 
 
-where $T_i$ is the transformation matrix corresponding to the $i^{th}$ joint of the robot. These transformation matrices can be computed from the Denavit-Hartenberg parameters, which describe the geometry and kinematics of the robot. The Denavit-Hartenberg frames and parameters for the Franka Panda robot arm are depicted in Figure \ref{fig:dh-franka}.
+where $T_i$ is the transformation matrix corresponding to the $i^{th}$ joint of the robot. These transformation matrices can be computed from the Denavit-Hartenberg parameters, which describe the geometry and kinematics of the robot as per the following equation:
+
+\begin{equation}
+    T_i = \begin{bmatrix}
+    \cos(\theta_i) & -\sin(\theta_i)\cos(\alpha_i) & \sin(\theta_i)\sin(\alpha_i) & a_i\cos(\theta_i)\\
+    \sin(\theta_i) & \cos(\theta_i)\cos(\alpha_i) & 
+    -\cos(\theta_i)\sin(\alpha_i) & a_i\sin(\theta_i)\\
+    0 & \sin(\alpha_i) & \cos(\alpha_i) & d_i \\
+    0 & 0 & 0 & 1
+    \end{bmatrix}
+\end{equation}
+
+
+
+The Denavit-Hartenberg frames and parameters for the Franka Panda robot arm are depicted in Figure \ref{fig:dh-franka}.
 
 \begin{figure}[ht]
     \centering
@@ -454,4 +485,4 @@ Mathematically, these steps can be represented as follows (Source: \url{https://
 
 The cost function $\zeta$ takes into account factors such as the length of the path, the amount of time it takes to complete the path, and the distance from the robot arm to obstacles in the environment. Over time, the CEM algorithm converges to an optimal solution, which represents the best path for the robot arm to reach the target point while avoiding obstacles. 
 
-We use an improved version of CEM, called Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VPSTO} for manipulator path planning in Chapter \ref{ch:bl_arm}.
+We use an improved version of CEM, called Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VP-STO} for manipulator path planning in Chapter \ref{ch:bl_arm}.

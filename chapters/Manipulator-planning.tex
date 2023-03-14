@@ -1,13 +1,11 @@
-\section{\label{qleet-sec:abstract}Abstract}
-
 Manipulating a target object using a fixed-base robot manipulator presents a complex problem that requires addressing multiple constraints, such as optimizing the manipulator joint cost, finding a collision-free trajectory, and modeling the object dynamics. Previous approaches have relied on contact-rich manipulation, where the object moves predictably while attached to the manipulator, thereby avoiding the need to model the object's dynamics, which does not generalize to multiple types of end-effectors. Further, collision avoidance for manipulators in existing approaches rely on context-specific neural network-based object representation, which need to be retrained for each specific arrangement and type of obstacles and robots.  
-We first discuss a stochastic trajectory optimizer, Via-point Stochastic Trajectory Optimization and adapt it for context-agnostic path planning in the joint space for commonly-used robot manipulators, such as the Franka Panda and UR5e. Next, we propose a novel framework that disentangles the non-prehensile long-horizon manipulation problem into planning and control. The planning component uses the aforementioned context-agnostic Via-Point stochastic trajectory optimizer, generating a collision-free trajectory from the start to the goal position, consisting of multiple via-points. This simplifies the task of the reinforcement learning based control component, which only needs to move the object closer to the next via-point. We pair the high-level via-point planner with a low-level push controller based on Deep Reinforcement Learning, that is gripper-agnostic. A key contribution of our approach is that the planning module predicts the most optimal path for the control component given the scene context using a bi-level optimization scheme. Our experimental results demonstrate that the proposed framework can generalize to arbitrary scenes with multiple collision objects of different shapes and sizes. We evaluate the framework on a few complex scenes using a two-fingered gripper and show improvements over different related approaches.
+In this chapter, we try to solve the research problem \textbf{T3} from Section \ref{intro:manipulator_aim}. We will first discuss a stochastic trajectory optimizer, Via-point Stochastic Trajectory Optimization and adapt it for context-agnostic path planning in the joint space for commonly-used robot manipulators, such as the Franka Panda and UR5e. Next, we propose a novel framework that disentangles the non-prehensile long-horizon manipulation problem into path planning and motion planning. The planning component uses the aforementioned context-agnostic Via-Point stochastic trajectory optimizer, generating a collision-free trajectory from the start to the goal position, consisting of multiple via-points. We pair the high-level via-point planner with a low-level motion planner based on Deep Reinforcement Learning, that is gripper-agnostic. 
 
 \section{Introduction}
 
 Object manipulation is an essential task for robots to perform that has many diverse downstream applications, for example in the service industry (manipulating kitchenware~\cite{kitchen_arm}), industrial setting (packaging~\cite{industrial_arm}) and household (tabletop rearrangement~\cite{agarwal2022approaches}). Broadly, object manipulation can be of two types - \textit{Prehensile}, which involves continuous contact-rich gripping of the object using the manipulator's end-effector(gripper or a hand-like structure), and \textit{Non-Prehensile}, which involves moving the object without grasping it. Prehensile actions are often used in manufacturing, packaging, and assembly processes where the robot needs to handle and manipulate objects of various shapes and sizes. On the other hand, non-prehensile actions are typically used when the object is too fragile or too large to be picked up by the robot's gripper. Instead, the robot uses other methods such as pushing, pulling, sliding, or rolling to move the object around. Non-prehensile manipulator actions are commonly used in applications such as warehouse automation, sorting, and material handling.
 
-Path planning for manipulators involves finding a collision-free path for a robot arm or manipulator to follow as it moves from its current position to a desired position. Any trajectory sent to a manipulator to be followed must satisfy the dynamic and kinematic constraints of the robot, as well as the workspace bounds in which it operators. A few commonly-used approaches to path planning for manipulators include the following:
+Path planning for manipulators involves finding a collision-free path for a robot arm or manipulator to follow as it moves from its current state to a desired state. This state could be a set of predefined joint angles, or end-effector positions. Any trajectory sent to a manipulator to be followed must satisfy the dynamic and kinematic constraints, such as joint angle and velocity limits, as well as the workspace bounds in which it operators. These constraints come from the motion planner, which calculates the joint velocities necessary for executing the high-level path. A few commonly-used approaches to path planning for manipulators include the following:
 
 \begin{itemize}
     \item \textit{Sampling-based Methods:} These methods randomly sample the configuration space of the robot (i.e., the set of all possible positions and orientations) and attempt to find a collision-free path by connecting the samples together. Examples of sampling-based methods include Rapidly-exploring Random Trees(RRTs)\cite{RRT-og} and Probabilistic Roadmaps (PRMs)\cite{PRM}.
@@ -26,17 +24,17 @@ Sections \ref{sec:bg-gradient-manipulator} and \ref{sec:bg-sampling-manipulator}
 
 \begin{enumerate}
     \item Designing a fast, collision-aware high-level global path planner using stochastic trajectory optimization for manipulators
-    \item Coupling this high-level planner with a low-level push controller to enable the manipulator to perform precise long-horizon non-prehensile actions, such as pushing an object on a table.
+    \item Coupling this high-level planner with a low-level push planner to enable the manipulator to perform precise long-horizon non-prehensile actions, such as pushing an object on a table.
 \end{enumerate}
 
 \section{High-level Global Planning for Manipulators}
 
-In this section, we introduce the basics of a high-level path planning algorithm, Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VPSTO}, and design a suitable joint-space cost function incorporating collision avoidance. We show a few simulation results of our high-level global planner on the Universal Robots, UR5e robot arm and the Franka Emika Panda robot arm, both of whose kinematics have been discussed in Section \ref{sec:bg-manipulator-kinematics}.
+In this section, we introduce the basics of a high-level path planning algorithm, Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VP-STO}, and design a suitable joint-space cost function incorporating collision avoidance. We show a few simulation results of our high-level global planner on the Universal Robots, UR5e robot arm and the Franka Emika Panda robot arm, both of whose kinematics have been discussed in Section \ref{sec:bg-manipulator-kinematics}.
 
 
 \subsection{Via-Point Stochastic Trajectory Optimization(VP-STO)}
 
-Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VPSTO} fits different candidate trajectories satisfying the start and goal constraints to perform stochastic optimization over a cost function. VPSTO computes $N$ via-points between the start and the goal by sampling them from a multivariate Gaussian distribution, and fits trajectories satisfying the kinematic constraints of the robot and the workspace passing through them. The cost corresponding to these trajectories are then evaluated, and the trajectories are ranked in their order of cost. Finally the parameters of the sampling distribution are updated using the Covariance-Matrix Adaptation Method (CMA-ES). The benefit of the CMA-ES approach over standard Cross-Entropy Methods(CEM) lies in the following factors:
+Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VP-STO} fits different candidate trajectories satisfying the start and goal constraints to perform stochastic optimization over a cost function. VP-STO computes $N$ via-points between the start and the goal by sampling them from a multivariate Gaussian distribution, and fits trajectories satisfying the kinematic constraints of the robot and the workspace passing through them. The cost corresponding to these trajectories are then evaluated, and the trajectories are ranked in their order of cost. Finally the parameters of the sampling distribution are updated using the Covariance-Matrix Adaptation Method (CMA-ES). The benefit of the CMA-ES approach over standard Cross-Entropy Methods(CEM) lies in the following factors:
 
 \begin{itemize}
     \item \textit{Better handling of non-linearities}: CMA-ES is known for its ability to handle non-linear optimization problems, which are common in manipulator planning. CEM, on the other hand, tends to struggle with non-linearities, which can result in slower convergence and suboptimal solutions.
@@ -44,7 +42,7 @@ Via-Point Stochastic Trajectory Optimization(VP-STO)\cite{VPSTO} fits different 
     \item \textit{Better exploration of search space:}  CMA-ES uses a probabilistic approach to explore the search space, which helps to avoid getting stuck in local optima and to find the global optimum. CEM, on the other hand, uses a deterministic approach, which can lead to poor exploration of the search space.
 \end{itemize}
 
-The overall optimization pipeline in VPSTO is denoted in Figure {\ref{fig:vpsto}}. The cost function can be represented as the following:
+The overall optimization pipeline in VP-STO is denoted in Figure {\ref{fig:VP-STO}}. The cost function can be represented as the following:
 
 \begin{subequations}
 \begin{align}
@@ -58,17 +56,17 @@ The overall optimization pipeline in VPSTO is denoted in Figure {\ref{fig:vpsto}
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[scale=0.5]{figures/bl-manipulator/vpsto.png}
-    \caption[The VPSTO pipeline]{The end-to-end pipeline for Via-Point Stochastic Trajectory Optimization(VP-STO). Source: \cite{VPSTO}}.
-    \label{fig:vpsto}
+    \includegraphics[scale=0.5]{figures/bl-manipulator/VP-STO.png}
+    \caption[The VP-STO pipeline]{The end-to-end pipeline for Via-Point Stochastic Trajectory Optimization(VP-STO). Source: \cite{VP-STO}}.
+    \label{fig:VP-STO}
 \end{figure}
 
 
-Here $s_n$ denotes the scaled via point timings $s_n = t_n/T$, which are uniformly distributed between $(0,1)$. $q(s)$ is a weighted sum of basis functions. $T$ is the total movement duration. Now, given the via-points $q_{via}$ and the boundary conditions $q_0$, $v_0$, $q_T$, $v_T$, the computation of the explicit continuous trajectory only depends on $T$. VPSTO approximates $T$ by solving for the minimum positive duration such that the resulting velocity and acceleration limits are satisfied over a discrete set of evaluation points uniformly distributed in the continuous time-space. 
+Here $s_n$ denotes the scaled via point timings $s_n = t_n/T$, which are uniformly distributed between $(0,1)$. $q(s)$ is a weighted sum of basis functions. $T$ is the total movement duration. Now, given the via-points $q_{via}$ and the boundary conditions $q_0$, $v_0$, $q_T$, $v_T$, the computation of the explicit continuous trajectory only depends on $T$. VP-STO approximates $T$ by solving for the minimum positive duration such that the resulting velocity and acceleration limits are satisfied over a discrete set of evaluation points uniformly distributed in the continuous time-space. 
 
-For each evaluation point $s_k$, there exists a closed-form solution $T_k$ such that the motion happens through $q_0$, $q_T$, $q_{via}$, and the robot arm reach either the velocity limit or the acceleration limit at time $t = s_k$. VPSTO then picks the most conservative duration among the $K$ solutions for $T: T(q_{via}) = max(T_k)$ in order to make sure that the velocity and acceleration constraints are satisfied at all evaluation points. Once $T$ is known, $q(s)$ is found using the equations for $q_0$, $q_T$, $q_{via}$, $v_0$, and $v_T$. 
+For each evaluation point $s_k$, there exists a closed-form solution $T_k$ such that the motion happens through $q_0$, $q_T$, $q_{via}$, and the robot arm reach either the velocity limit or the acceleration limit at time $t = s_k$. VP-STO then picks the most conservative duration among the $K$ solutions for $T: T(q_{via}) = max(T_k)$ in order to make sure that the velocity and acceleration constraints are satisfied at all evaluation points. Once $T$ is known, $q(s)$ is found using the equations for $q_0$, $q_T$, $q_{via}$, $v_0$, and $v_T$. 
 
-VPSTO optimizes the trajectory by minimizing a cost function that captures the tradeoff between smoothness, efficiency, and safety. Based on the design of the cost function that VPSTO minimizes, we can adapt it for a wide variety of applications. In this dissertation, we adapt the VPSTO algorithm for manipulator pushing tasks on a tabletop and pair it with a low-level push controller in Section \ref{sec:bi-level-method}.
+VP-STO optimizes the trajectory by minimizing a cost function that captures the tradeoff between smoothness, efficiency, and safety. Based on the design of the cost function that VP-STO minimizes, we can adapt it for a wide variety of applications. In this dissertation, we adapt the VP-STO algorithm for manipulator pushing tasks on a tabletop and pair it with a low-level push planner in Section \ref{sec:bi-level-method}.
 
 \subsection{Collision Detection}
 
@@ -109,7 +107,7 @@ We send the robot model, list of movable joints, and list of obstacle models to 
 
 \subsection{Joint-Space Path Planning}\label{sec:joint-cost}
 
-The design of the cost function for VPSTO determines its application to the task at hand. For non-planar end-effector motion, such as grasping and pick-and-place operations, we perform global path-planning in the joint angle space. Recall from Section \ref{sec:bg-manipulator-kinematics} that the Franka Emika Panda robot has 7 movable joints, while the UR5e robot has 6 movable joints. To represent the joint angle movements and perform path-planning in the joint space, therefore, we would need to plan in 7-D for the Franka Panda manipulator and in 6-D for the UR5e manipulator. Joint-space planning allows us to also introduce joint limits as constraints into the optimization problem based on the robot dynamics. Note that we are allowed to design discontinuous non-differentiable cost functions since VPSTO never computes the gradient of the cost function but relies on stochastic optimization. We design a cost function for VPSTO as a sum of the following terms:
+The design of the cost function for VP-STO determines its application to the task at hand. For non-planar end-effector motion, such as grasping and pick-and-place operations, we perform global path-planning in the joint angle space. Recall from Section \ref{sec:bg-manipulator-kinematics} that the Franka Emika Panda robot has 7 movable joints, while the UR5e robot has 6 movable joints. To represent the joint angle movements and perform path-planning in the joint space, therefore, we would need to plan in 7-D for the Franka Panda manipulator and in 6-D for the UR5e manipulator. Joint-space planning allows us to also introduce joint limits as constraints into the optimization problem based on the robot dynamics. Note that we are allowed to design discontinuous non-differentiable cost functions since VP-STO never computes the gradient of the cost function but relies on stochastic optimization. We design a cost function for VP-STO as a sum of the following terms:
 
 \begin{enumerate}
     \item \textbf{Cost Limits}: This is defined as the frequency of violation of joint limits while executing a joint-space trajectory. 
@@ -127,18 +125,18 @@ The design of the cost function for VPSTO determines its application to the task
 
 \subsection{Simulation Results for Joint-Space Path Planning}
 
-We test the VPSTO-based global joint-space path planner using the cost function defined in Section \ref{sec:joint-cost} in PyBullet for a few scenarios involving one or two obstacles of varied sizes. The results of a few test simulations can be found at: \url{https://www.dropbox.com/scl/fo/t1dy47cgz2rvmedj9a87o/h?dl=0&rlkey=ou4losxv0i9lawc2wffnk60vl}. Figure \ref{fig:joint_traj_ur5} shows an example trajectory from our simulator runs for the Universal Robots UR5e robot arm. 
+We test the VP-STO-based global joint-space path planner using the cost function defined in Section \ref{sec:joint-cost} in PyBullet for a few scenarios involving one or two obstacles of varied sizes. The results of a few test simulations can be found at: \url{https://www.dropbox.com/scl/fo/t1dy47cgz2rvmedj9a87o/h?dl=0&rlkey=ou4losxv0i9lawc2wffnk60vl}. Figure \ref{fig:joint_traj_ur5} shows an example trajectory from our simulator runs for the Universal Robots UR5e robot arm. 
 
 \begin{figure}[ht]
     \centering
     \includegraphics[scale=0.2]{figures/bl-manipulator/joint_trajs.png}
-    \caption[Joint-space trajectories using VPSTO]{(a) A few examples of trajectories obtained after joint-space trajectory optimization using VPSTO simulated in PyBullet. (b) The associated cost function plots during the optimization iterations. VPSTO is able to minimize the cost function, which can be denoted by the reducing trend in the cost plots.}
+    \caption[Joint-space trajectories using VP-STO]{(a) A few examples of trajectories obtained after joint-space trajectory optimization using VP-STO simulated in PyBullet. (b) The associated cost function plots during the optimization iterations. VP-STO is able to minimize the cost function, which can be denoted by the reducing trend in the cost plots.}
     \label{fig:joint_traj_ur5}
 \end{figure}
 
 \subsection{Path Planning for Pushing Objects on a Table}
 
-For the planar motion of the manipulator's end-effector, such as pushing an object along a table, we can discard the high-dimensional joint space path planning in favor of a simpler Cartesian-space motion of the end-effector. Thus the path planning for the end-effector can be performed in the Cartesian end-effector space, which would be 2-D in the case of planar tabletop motion. The end-effector can be thought of as a circular holonomic robot in 2-D of diameter equivalent to the separation between the fingers of the gripper plus the finger widths. This approximation makes it possible to use standard holonomic robot path-planning algorithms, as well as stochastic optimizers like VPSTO, to plan the end-effector trajectory. We can further simplify this by planning 2-D trajectories for the center of the object being pushed on the table instead of directly the end-effector, particularly in cases where only brief contacts or pushes by striking are allowed between the end-effector and the object. In such cases, it is not enough for the end-effector to reach the desired goal position. Rather, the object should be able to reach the goal position, and an efficient push controller should be designed to determine the controls necessary for the manipulator to push the object along the planned trajectory. An example of a 2-D trajectory for an object being pushed on a table by a manipulator is shown in Figure \ref{fig:end-eff-traj}.
+For the planar motion of the manipulator's end-effector, such as pushing an object along a table, we can discard the high-dimensional joint space path planning in favor of a simpler Cartesian-space motion of the end-effector. Thus the path planning for the end-effector can be performed in the Cartesian end-effector space, which would be 2-D in the case of planar tabletop motion. The end-effector can be thought of as a circular holonomic robot in 2-D of diameter equivalent to the separation between the fingers of the gripper plus the finger widths. This approximation makes it possible to use standard holonomic robot path-planning algorithms, as well as stochastic optimizers like VP-STO, to plan the end-effector trajectory. We can further simplify this by planning 2-D trajectories for the center of the object being pushed on the table instead of directly the end-effector, particularly in cases where only brief contacts or pushes by striking are allowed between the end-effector and the object. In such cases, it is not enough for the end-effector to reach the desired goal position. Rather, the object should be able to reach the goal position, and an efficient push planner should be designed to determine the controls necessary for the manipulator to push the object along the planned trajectory. An example of a 2-D trajectory for an object being pushed on a table by a manipulator is shown in Figure \ref{fig:end-eff-traj}.
 
 \begin{figure}[ht]
     \centering
@@ -149,11 +147,11 @@ For the planar motion of the manipulator's end-effector, such as pushing an obje
 
 \subsubsection{Analysis of Joint Costs associated with Cartesian-space trajectories for pushing objects}
 
-For manipulators, in addition to the performance metrics discussed in Section \ref{sec:traj_eval_metrics}, joint cost becomes a very important metric for benchmark comparison. Joint cost is defined as the norm of the difference in joint angles over successive timestamps. In essence, joint cost captures the effort expended by the robot to perform some task by changing its joint angles, and therefore, the goal of an efficient trajectory optimizer would be to minimize the joint cost incurred by the robot arm to complete a given task. For joint-space path planning, it is easy to incorporate the differences between successive joint angles for each joint-space trajectory. However, if we are planning in the Euclidean end-effector space, or in the space of the center of the object being pushed on the table, minimizing just the Euclidean length of the trajectory may not be sufficient; it is important to check for the joint effort to execute an end-effector trajectory or push an object along a planned trajectory. Table \ref{table: straight-line-vs-joint} demonstrates that the shortest object-center trajectory in terms of Euclidean length, i.e. straight-line trajectory, does not always guarantee the least joint cost; in fact, the trajectory returned by VPSTO optimizing over joint-cost is more optimal in terms of joint effort for the same number of waypoints. To compute joint cost, we need to execute the planned object-center trajectory using a push controller and obtain the joint angles. For real robots, we can use manipulator-specific analytical Inverse Kinematics(IK) solvers\cite{Analytical_IK} to convert end-effector positions to joint angles. 
+For manipulators, in addition to the performance metrics discussed in Section \ref{sec:traj_eval_metrics}, joint cost becomes a very important metric for benchmark comparison. Joint cost is defined as the norm of the difference in joint angles over successive timestamps. In essence, joint cost captures the effort expended by the robot to perform some task by changing its joint angles, and therefore, the goal of an efficient trajectory optimizer would be to minimize the joint cost incurred by the robot arm to complete a given task. For joint-space path planning, it is easy to incorporate the differences between successive joint angles for each joint-space trajectory. However, if we are planning in the Euclidean end-effector space, or in the space of the center of the object being pushed on the table, minimizing just the Euclidean length of the trajectory may not be sufficient; it is important to check for the joint effort to execute an end-effector trajectory or push an object along a planned trajectory. Table \ref{table: straight-line-vs-joint} demonstrates that the shortest object-center trajectory in terms of Euclidean length, i.e. straight-line trajectory, does not always guarantee the least joint cost; in fact, the trajectory returned by VP-STO optimizing over joint-cost is more optimal in terms of joint effort for the same number of waypoints. To compute joint cost, we need to execute the planned object-center trajectory using a push planner and obtain the joint angles. For real robots, we can use manipulator-specific analytical Inverse Kinematics(IK) solvers\cite{Analytical_IK} to convert end-effector positions to joint angles. 
 
 \begin{table}
 \centering
-\caption{Comparison of Joint Costs associated with different types of object-center trajectories using our push controller from Section \ref{sec:low-level-rl}.} \label{table: straight-line-vs-joint}
+\caption{Comparison of Joint Costs associated with different types of object-center trajectories using our push planner from Section \ref{sec:low-level-rl}.} \label{table: straight-line-vs-joint}
 \scriptsize
 \begin{tabular}{|p{2cm}|p{2cm}|p{4cm}|p{2cm}|p{3cm}|}\hline
  Start Position(m,m) & End Position(m,m) & Trajectory Type & Num WayPoints & Joint Cost
@@ -162,7 +160,7 @@ For manipulators, in addition to the performance metrics discussed in Section \r
 \\ \hline
 (0.35, -0.05) & (0.5, 0.1)	& 2-piecewise straight lines & 8 & 53.2750370301563
 \\ \hline
-(0.35, -0.05) & (0.5, 0.1)	& VPSTO		& 8	& 	39.5423031834928
+(0.35, -0.05) & (0.5, 0.1)	& VP-STO		& 8	& 	39.5423031834928
 \\ \hline
 (0.4, -0.15) & (0.63, 0.05)	& Straight line	& 8	& 83.0072021138549
 \\ \hline
@@ -172,17 +170,17 @@ For manipulators, in addition to the performance metrics discussed in Section \r
 \\ \hline
 (0.4, -0.15) & (0.63, 0.05) & 4-piecewise straight lines & 8 & 120.5008919817
 \\ \hline
-(0.4, -0.15) & (0.63, 0.05)	& VPSTO	& 8	& 62.1512468250956
+(0.4, -0.15) & (0.63, 0.05)	& VP-STO	& 8	& 62.1512468250956
 \\ \hline
 (0.5, 0.1)	& (0.65, -0.05)	& Straight line	& 18 & 88.1713855670522
 \\ \hline
 (0.5, 0.1)	& (0.65, -0.05)	& 2-piecewise straight lines & 18 & 100.889302118451
 \\ \hline
-(0.5, 0.1)	& (0.65, -0.05)	& VPSTO & 18 & 77.346373
+(0.5, 0.1)	& (0.65, -0.05)	& VP-STO & 18 & 77.346373
 \\ \hline
 \end{tabular}
 \normalsize
-\vspace{-0.4cm}
+\vspace{-0.1cm}
 \end{table}
 
 \section{Bi-Level Optimization for Non-Prehensile Actions}\label{sec:bi-level-method}
@@ -196,17 +194,17 @@ In recent years, deep reinforcement learning (RL) has shown promising results in
 
 Moreover, RL algorithms trained for long-horizon tasks are hard to generalize across a wide variety of scene configurations and out-of-distribution object shapes and sizes.
 
-In this work, we tackle the problem of object rearrangement using non-prehensile actions by disentangling the space of control and planning. The path planning module generates a feasible trajectory for the robot's end-effector, while the low-level RL controller learns to control the robot's movements to achieve the desired task. In our framework, RL acts as an efficient mechanism for understanding the dynamics of an object on different push actions. Here, the RL controller is trained using a simple objective to push the object quickly to a given goal location. 
+In this work, we tackle the problem of object rearrangement using non-prehensile actions by disentangling the space of control and planning. The path planning module generates a feasible trajectory for the robot's end-effector, while the low-level RL motion planner learns to plan the robot's controls to achieve the desired task. In our framework, RL acts as an efficient mechanism for understanding the dynamics of an object on different push actions. Here, the RL motion planner is trained using a simple objective to push the object quickly to a given goal location. 
 
-In this setting, the low-level controller is unaware of the collision objects and is dependent on a high-level planning module to obtain an optimal collision-free trajectory. At the same time, the high-level planning module predicts the most optimal trajectory for the given RL controller. The framework is trained using bi-level optimization: the high-level planning module is optimized on the cost of execution of the low-level controller. 
+In this setting, the low-level motion planner is unaware of the collision objects and is dependent on a high-level planning module to obtain an optimal collision-free trajectory. At the same time, the high-level planning module predicts the most optimal trajectory for the given RL motion planner. The framework is trained using bi-level optimization: the high-level planning module is optimized on the cost of execution of the low-level motion planner. 
 
-A global RL policy solves the task of manipulating an object from start to goal position end-to-end using a single policy. Such a controller simultaneously solves the control task (understanding the dynamics of the system) and the planning task (a collision-free optimal trajectory from start to goal). 
+A global RL policy solves the task of manipulating an object from start to goal position end-to-end using a single policy. Such a global policy simultaneously solves the control task (understanding the dynamics of the system) and the planning task (a collision-free optimal trajectory from start to goal). 
 Compared to training a global RL model for non-prehensile object manipulation, our framework, based on a bi-level optimization objective can have several advantages: 
 
 \begin{enumerate}
     \item \textbf{Better task-specific performance:} Non-prehensile object manipulation tasks can be highly varied and complex, and a single global RL model may not be able to handle all tasks equally well. In contrast, a bi-level optimization approach can generate task-specific plans that are optimized for each individual task, resulting in better performance. 
     \item \textbf{Improved sample efficiency:} Non-prehensile object manipulation tasks typically require a large number of samples to train an RL model effectively. A bi-level optimization approach can reduce the number of samples required by using the high-level planning module to generate a task-specific collision-free plan, which can simplify the RL objective to only push to a goal location. 
-    \item \textbf{Better interpretability:} A bi-level optimization approach separates the control of the task-specific plan and the low-level actions, making it easier to understand how the system operates and diagnose issues. In contrast, a global RL model can be more opaque and difficult to interpret. 
+    \item \textbf{Better interpretability:} A bi-level optimization approach separates the generation of the task-specific plan and the low-level actions, making it easier to understand how the system operates and diagnose issues. In contrast, a global RL model can be more opaque and difficult to interpret. 
     \item \textbf{Ability to handle constraints:} Non-prehensile object manipulation tasks often have constraints, such as avoiding collisions or maintaining balance. A bi-level optimization approach can incorporate these constraints into the high-level planning module and use them to guide the low-level actions. 
 \end{enumerate}
 
@@ -220,7 +218,7 @@ We aim to tackle push-to-goal through push-by-striking manipulation. Push-by-str
 
 RL has been applied in various robotics applications, including grasping~\cite{grasp1, grasp2,grasp3}, manipulation~\cite{manipulation1, manipulation2}, and locomotion~\cite{locomotion1, locomotion2}. Recently there has been a lot of work~\cite{residual1, residual2, residual3} on combining RL with classic controllers and primitives to improve their performance. RL-based methods have also shown promising results in performing non-prehensile object manipulation tasks. For instance, Tan et al.\cite{hierarchical-rl} proposed a hierarchical RL method for non-prehensile object manipulation, where the high-level policy generates a sequence of subtasks, and the low-level policy learns to execute each subtask. Zhang et al.\cite{zhang-rl} proposed a hierarchical RL framework that combines the advantages of both model-based and model-free methods for non-prehensile object manipulation.
 
-Path planning algorithms are also widely used in robotics applications, including object manipulation~=\cite{planning1, planning2, planning3}. Path planning algorithms generate a feasible trajectory for the robot to perform the task. Various path-planning algorithms have been proposed, including sampling-based methods\cite{planning1} and optimization-based methods\cite{planning2}. While other path-planning approaches would build a path without taking into account the capabilities of the lower-level controller, our trajectory optimization model samples optimal trajectories by considering the capability of our low-level RL controller. Our neural network is aware of the limitations and capabilities of the lower-level RL controller. 
+Path planning algorithms are also widely used in robotics applications, including object manipulation~=\cite{planning1, planning2, planning3}. Path planning algorithms generate a feasible trajectory for the robot to perform the task. Various path-planning algorithms have been proposed, including sampling-based methods\cite{planning1} and optimization-based methods\cite{planning2}. While other path-planning approaches would build a path without taking into account the capabilities of the lower-level motion planner, our trajectory optimization model samples optimal trajectories by considering the capability of our low-level RL motion planner. Our neural network is aware of the limitations and capabilities of the lower-level RL motion planner. 
 
 \subsection{Task Specification}
 \label{sec:task-specification}
@@ -229,18 +227,18 @@ We consider the task of pushing a target object from an initial pose to a goal p
 
 \subsection{Proposed Framework}
 
-Our proposed approach involves two modules: a path-planning module and a low-level RL controller. The path planning module generates an optimal collision-free trajectory for the robot's end-effector, while the low-level RL controller controls the robot's movements to accomplish the task objectives. Fig.~\ref{fig:pipeline} illustrates the proposed approach.
+Our proposed approach involves two modules: a path-planning module and a low-level RL motion planner. The path planning module generates an optimal collision-free trajectory for the robot's end-effector, while the low-level RL motion planner plans the robot's controls to accomplish the task objectives. Fig.~\ref{fig:pipeline} illustrates the proposed approach.
 
 \begin{figure}
     \centering \includegraphics[scale=0.8]{figures/bl-manipulator/pipeline.v9.pdf} 
-    \caption[Bi-level optimization pipeline]{Our bi-level optimization framework solves the task of non-prehensile object manipulation in a cluttered tabletop rearrangement scene. We make use of a low-level RL controller that is trained to reach a short goal. The high-level planning module predicts a set of waypoints that is most optimal for the low-level RL controller to execute. The purple and brown objects indicate obstacles (collision objects); dark-blue squares indicate the target object, and the light-blue squares indicate the trajectory taken by the RL controller between a set of intermediate waypoints predicted by the high-level planning module.}
+    \caption[Bi-level optimization pipeline]{Our bi-level optimization framework solves the task of non-prehensile object manipulation in a cluttered tabletop rearrangement scene. We make use of a low-level RL motion planner that is trained to reach a short goal. The high-level planning module predicts a set of waypoints that is most optimal for the low-level RL motion planner to execute. The purple and brown objects indicate obstacles (collision objects); dark-blue squares indicate the target object, and the light-blue squares indicate the trajectory taken by the RL motion planner between a set of intermediate waypoints predicted by the high-level planning module.}
     \label{fig:pipeline}
 \end{figure}
 
-\subsubsection{Low-level RL Push Controller}
+\subsubsection{Low-level RL Push Planner}
 \label{sec:low-level-rl}
 
-Our RL controller learns to simply push a target object from a start to a goal location on a tabletop scene. Our controller is trained without any obstacles on the table and is optimized to approach the goal location quickly. Our state space consists of the set of poses taken by the target object, which is being pushed by the RL controller. The action space is defined as a set of 8 discrete equidistant points on the perimeter of the target object and 8 different push angles at each of these 8 points. The objective of the controller is to learn a policy that maximizes the expected cumulative reward, where the reward is the dense negative distance from the current pose to the goal location. The distance metric is the Euclidean distance between the centroid of the target object and the goal location.
+Our RL motion planner learns to simply push a target object from a start to a goal location on a tabletop scene. Our push planner is trained without any obstacles on the table and is optimized to approach the goal location quickly. Our state space consists of the set of poses taken by the target object, which is being pushed by the RL motion planner. The action space is defined as a set of 8 discrete equidistant points on the perimeter of the target object and 8 different push angles at each of these 8 points. The objective of this RL push planner is to learn a policy that maximizes the expected cumulative reward, where the reward is the dense negative distance from the current pose to the goal location. The distance metric is the Euclidean distance between the centroid of the target object and the goal location.
 
 Formally, the state space is represented by $S \in \mathbb{R}^{6}$, where each element of the state vector represents the position and orientation of the target object. The action space is represented by $A \in \mathbb{R}^{16}$, where each action is a combination of a point on the object and a push angle. Let $s_t \in S$, and $a_t \in A$ denote the state and action at time step $t$, respectively. The state transition is deterministic, and the next state $s_{t+1}$ is computed as the result of applying the push action to the current state $s_t$.
 
@@ -248,9 +246,9 @@ The reward function is defined as
 \begin{equation}
 r(s_t, a_t) = -\gamma ||\; \mathcal{C}(s_t) - \mathcal{G}\; ||_2
 \end{equation}
-where $\gamma$ is a discount factor, $\mathcal{C}(s_t)$ is the centroid of the target object in the current state, and $\mathcal{G}$ is the goal location. The negative distance metric is used to encourage the controller to minimize the distance to the goal location. The discount factor is used to balance the trade-off between short-term and long-term rewards.
+where $\gamma$ is a discount factor, $\mathcal{C}(s_t)$ is the centroid of the target object in the current state, and $\mathcal{G}$ is the goal location. The negative distance metric is used to encourage the push planner to minimize the distance to the goal location. The discount factor is used to balance the trade-off between short-term and long-term rewards.
 
-The RL controller learns a policy $\pi(s_t)$ that maps states to actions by maximizing the expected cumulative reward. The optimal policy is obtained by solving the Bellman equation, which is given by:
+The RL motion planner learns a policy $\pi(s_t)$ that maps states to actions by maximizing the expected cumulative reward. The optimal policy is obtained by solving the Bellman equation, which is given by:
 \begin{equation}
 \begin{aligned}
     &Q(s_t, a_t) = r(s_t, a_t) \\
@@ -266,19 +264,19 @@ To learn the optimal policy, we employ a deep Q-learning algorithm that uses a n
 
 \subsubsection{High-Level Path Planning Module}
 \label{sec:path-planning-module}
-The high-level planner generates a feasible trajectory for the object being pushed by the manipulator, taking as input the initial and final configurations of the object and producing a sequence of intermediate via points that the low-level controller must push it along. In our case, it is important to plan the high-level trajectory for the object instead of the manipulator itself, as is done in the case of contact-rich manipulation. This is because the behavior of the manipulator and the object being pushed are different. Pushing in a contact-impoverished manipulation task, the robot's end-effector only contacts the object briefly to give it a push, and the object continues to move without being directly contacted by the manipulator. Due to this, it is not straightforward to predict the object's trajectory based solely on the manipulator's motion, making it more challenging to plan a trajectory directly for the manipulator. It is noteworthy that planning the high-level trajectory for the object, as opposed to the manipulator, provides a robust and gripper-agnostic algorithm that accounts for the mismatches between the manipulator's motion and the object's movement due to striking.
+The high-level planner generates a feasible trajectory for the object being pushed by the manipulator, taking as input the initial and final configurations of the object and producing a sequence of intermediate via points that the low-level motion planner must push it along. In our case, it is important to plan the high-level trajectory for the object instead of the manipulator itself, as is done in the case of contact-rich manipulation. This is because the behavior of the manipulator and the object being pushed are different. Pushing in a contact-impoverished manipulation task, the robot's end-effector only contacts the object briefly to give it a push, and the object continues to move without being directly contacted by the manipulator. Due to this, it is not straightforward to predict the object's trajectory based solely on the manipulator's motion, making it more challenging to plan a trajectory directly for the manipulator. It is noteworthy that planning the high-level trajectory for the object, as opposed to the manipulator, provides a robust and gripper-agnostic algorithm that accounts for the mismatches between the manipulator's motion and the object's movement due to striking.
 
-The predicted via points are collision-free and ensure that the object can be pushed toward the goal location without encountering any obstacles. For high-level planning, we use the VPSTO algorithm, a stochastic sampling-based optimization method. VPSTO evaluates candidate trajectories by estimating the per-iteration cost function on a simulator running the low-level RL controller, which effectively captures the manipulator and environment dynamics. The cost function incorporates joint cost, collision cost, and boundary cost, as explained in the following section.
+The predicted via points are collision-free and ensure that the object can be pushed toward the goal location without encountering any obstacles. For high-level planning, we use the VP-STO algorithm, a stochastic sampling-based optimization method. VP-STO evaluates candidate trajectories by estimating the per-iteration cost function on a simulator running the low-level RL motion planner, which effectively captures the manipulator and environment dynamics. The cost function incorporates joint cost, collision cost, and boundary cost, as explained in the following section.
 
 \subsection{Designing the bi-level optimization objective}
 
 As can be seen in Fig.~\ref{fig:pipeline}, the high-level planning module predicts an optimal trajectory for the end-effector. In other words, the predicted trajectory, $\mathcal{T}$, comprising of a set of via-points, $\mathcal{V}$, is optimal in terms of the manipulator's joint cost, $\mathcal{J}$, as it tries to execute the trajectory. 
 
-To obtain the optimal trajectory for a given scene made of multiple obstacles, VPSTO optimizes the following cost objective, $\mathbb{J}$ computed as:
+To obtain the optimal trajectory for a given scene made of multiple obstacles, VP-STO optimizes the following cost objective, $\mathbb{J}$ computed as:
 \begin{equation}
     \mathbb{J}(\pi, \mathcal{V}) = \alpha\mathcal{J} + \beta\mathcal{X} + \gamma\mathcal{B} 
 \end{equation}
-where $\pi$ is our low-level RL policy as defined in Sec.~\ref{sec:low-level-rl}. $\mathcal{X}$ and $\mathcal{B}$ are the collision and out-of-boundaries cost, respectively. $\alpha$, $\beta$, and $\gamma$ are the scaling parameters to normalize the three different metrics.  $\mathcal{J}$ is calculated based on the first-order change in the manipulator's joint angles, while the collision cost, $\mathcal{X}$, reflects the change in obstacle positions in the scene. The out-of-boundary cost, $\mathcal{B}$, is calculated as the frequency of workspace boundary violations. Note that the joint angles are obtained after simulating the manipulator's movement using the low-level RL controller in PyBullet. For each of the via-point $\{v_i\}_{i=1}^{\mathcal{K}-1} \in \mathcal{V}$, the RL controller is executed to push the object from $v_i$ to $v_{i+1}$; here $\mathcal{K}$ is the number of via-points predicted by the planning module. The total joint cost is then computed as:
+where $\pi$ is our low-level RL policy as defined in Sec.~\ref{sec:low-level-rl}. $\mathcal{X}$ and $\mathcal{B}$ are the collision and out-of-boundaries cost, respectively. $\alpha$, $\beta$, and $\gamma$ are the scaling parameters to normalize the three different metrics.  $\mathcal{J}$ is calculated based on the first-order change in the manipulator's joint angles, while the collision cost, $\mathcal{X}$, reflects the change in obstacle positions in the scene. The out-of-boundary cost, $\mathcal{B}$, is calculated as the frequency of workspace boundary violations. Note that the joint angles are obtained after simulating the manipulator's movement using the low-level RL motion planner in PyBullet. For each of the via-point $\{v_i\}_{i=1}^{\mathcal{K}-1} \in \mathcal{V}$, the RL motion planner is executed to push the object from $v_i$ to $v_{i+1}$; here $\mathcal{K}$ is the number of via-points predicted by the planning module. The total joint cost is then computed as:
 \begin{equation}
 \label{eqn:joint-cost}
     \mathcal{J} = \sum_{i=1}^{\mathcal{K}-1} j(v_i, v_{i+1})
@@ -287,7 +285,7 @@ where $j$ indicates the local cost of moving the target object between the inter
 
 \subsection{Simulation Results}\label{sec:bl_results}
 
-We test our bi-level optimizer on a few tabletop scenarios involving one or more obstacles of varied shapes and sizes in the PyBullet simulator. Figure \ref{fig: bl_qualitative} shows the trajectories predicted by our bi-level approach while avoiding collisions and minimizing joint cost within the workspace bounds. Figure \ref{fig:bl_sim} indicates the predicted trajectory when run in the PyBullet simulator using our low-level push controller. Additional simulation results on other test cases can be found at \url{https://www.dropbox.com/sh/mf8j0kq4mv53wct/AABVdITIHCfNBtqHMphnJcSia?dl=0}.
+We test our bi-level optimizer on a few tabletop scenarios involving one or more obstacles of varied shapes and sizes in the PyBullet simulator. Figure \ref{fig: bl_qualitative} shows the trajectories predicted by our bi-level approach while avoiding collisions and minimizing joint cost within the workspace bounds. Figure \ref{fig:bl_sim} indicates the predicted trajectory when run in the PyBullet simulator using our low-level push planner. Additional simulation results on other test cases can be found at \url{https://www.dropbox.com/sh/mf8j0kq4mv53wct/AABVdITIHCfNBtqHMphnJcSia?dl=0}.
 
 
 \begin{figure*}
@@ -307,10 +305,10 @@ We test our bi-level optimizer on a few tabletop scenarios involving one or more
         \centering
         \includegraphics[height=1.8in]{figures/bl-manipulator/2d_object.png}
     \end{subfigure}
-    \caption[Bi-level simulation in PyBullet]{(a) Trajectories predicted by our framework simulated in PyBullet with our low-level RL push controller. The blue boxes on the black table indicate collision objects(obstacles), and (b) The top-view of the object motion as a result of executing the trajectory.}
+    \caption[Bi-level simulation in PyBullet]{(a) Trajectories predicted by our framework simulated in PyBullet with our low-level RL push planner. The blue boxes on the black table indicate collision objects(obstacles), and (b) The top-view of the object motion as a result of executing the trajectory.}
     \label{fig:bl_sim}
 \end{figure*}
 
-\section{Discussions and Conclusion}
+\section{Discussions}
 
-In this chapter, we adapted the Via-point-based Stochastic Trajectory Optimization(VPSTO) trajectory optimizer for manipulator path planning tasks, using PyBullet's mesh overlap technique to detect collisions. We presented a few simulation results obtained from joint-space trajectory planning using VPSTO. We then proposed a framework for disentangling non-prehensile long-horizon manipulation into planning and control. Our approach predicts a collision-free trajectory using VPSTO and simplifies the control component's task by reducing it to moving the object toward the next via point. In the future, one can reduce the planning time for our offline bi-level optimizer by curating a dataset of start-goal pairs and their optimal trajectories. A neural network can be trained to learn these configuration-to-trajectory mappings and can be used in real-time during inference to quickly obtain optimal manipulator trajectories. Further, more ablation studies can be performed by replacing the optimizer and the push controller in our bi-level optimization framework. Overall, our proposed framework is a promising step towards achieving more efficient and flexible non-prehensile manipulation.
+In this chapter, we adapted the Via-point-based Stochastic Trajectory Optimization(VP-STO) trajectory optimizer for manipulator path planning tasks, using PyBullet's mesh overlap technique to detect collisions. We presented a few simulation results obtained from joint-space trajectory planning using VP-STO. We then proposed a framework for disentangling non-prehensile long-horizon manipulation into path planning and motion control. Our approach predicts a collision-free trajectory using VP-STO and simplifies the motion planning component's task by reducing it to moving the object toward the next via point. In the future, one can reduce the planning time for our offline bi-level optimizer by curating a dataset of start-goal pairs and their optimal trajectories. A neural network can be trained to learn these configuration-to-trajectory mappings and can be used in real-time during inference to quickly obtain optimal manipulator trajectories. Further, more ablation studies can be performed by replacing the optimizer and the push planner in our bi-level optimization framework. Overall, our proposed framework is a promising step towards achieving more efficient and flexible non-prehensile manipulation.
